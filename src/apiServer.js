@@ -12,8 +12,22 @@ app.use(express.json());
 // Google Sheets setup
 const SPREADSHEET_ID = "1oSyu-xaWxzfiOB4X-gYu9DiGu3Lj4f-cqT2xBt3mPs0";
 
+// Load credentials from environment variable
+if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+  console.error("❌ GOOGLE_SERVICE_ACCOUNT_KEY environment variable not set!");
+  process.exit(1);
+}
+
+let serviceAccount;
+try {
+  serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+} catch (err) {
+  console.error("❌ Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY:", err);
+  process.exit(1);
+}
+
 const auth = new google.auth.GoogleAuth({
-  keyFile: "./src/service-account.json",
+  credentials: serviceAccount,
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
