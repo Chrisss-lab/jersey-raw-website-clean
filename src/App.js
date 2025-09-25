@@ -11,7 +11,19 @@ import Calculator from "./Calculator.js";
 import logo from "./photo-jersey-raw-logo.jpg";
 
 function App() {
-  const linkStyle = { margin: "0 15px", textDecoration: "none", color: "#2b6e44", fontWeight: "bold" };
+  const linkStyle = {
+    textDecoration: "none",
+    color: "#2b6e44",
+    fontWeight: "bold",
+    padding: "10px 12px",
+    textAlign: "center",
+    borderRadius: "8px",
+    backgroundColor: "#e6f1ea",
+    margin: "4px",
+    minWidth: "70px",
+    display: "inline-block",
+  };
+
   const buttonStyle = {
     display: "inline-block",
     padding: "15px 30px",
@@ -24,6 +36,7 @@ function App() {
     textDecoration: "none",
     transition: "all 0.2s",
   };
+
   const cardStyle = {
     maxWidth: "900px",
     margin: "30px auto",
@@ -33,6 +46,7 @@ function App() {
     boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
     textAlign: "center",
   };
+
   const heroStyle = {
     position: "relative",
     backgroundImage: `url(${logo})`,
@@ -46,6 +60,7 @@ function App() {
     textAlign: "center",
     overflow: "hidden",
   };
+
   const overlayStyle = {
     position: "absolute",
     top: 0,
@@ -56,25 +71,76 @@ function App() {
     borderRadius: "12px",
     zIndex: 1,
   };
+
   const heroTextStyle = {
     position: "relative",
     zIndex: 2,
     textShadow: "1px 1px 6px rgba(0,0,0,0.8)",
   };
 
+  const navItems = [
+    { label: "Home", path: "/" },
+    { label: "Recipes", path: "/recipes" },
+    { label: "Order Now", path: "/order" },
+    { label: "Food Calculator", path: "/calculator" },
+    { label: "About Us", path: "/about" },
+    { label: "Contact", path: "/contact" },
+  ];
+
   return (
     <Router>
-      <div style={{ fontFamily: "Arial, sans-serif", color: "#333", backgroundColor: "#f4f6f8", minHeight: "100vh" }}>
+      <div
+        style={{
+          fontFamily: "Arial, sans-serif",
+          color: "#333",
+          backgroundColor: "#f4f6f8",
+          minHeight: "100vh",
+        }}
+      >
         {/* Header Navigation */}
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "15px 40px", backgroundColor: "#fff", borderBottom: "2px solid #ddd", position: "sticky", top: 0, zIndex: 10 }}>
-          <img src={logo} alt="Jersey Raw Logo - Fresh Raw Dog Food in Morris County NJ" style={{ height: "60px", width: "60px", borderRadius: "50%", objectFit: "cover", border: "2px solid #2b6e44" }} />
-          <nav>
-            <Link to="/" style={linkStyle}>Home</Link>
-            <Link to="/recipes" style={linkStyle}>Recipes</Link>
-            <Link to="/order" style={linkStyle}>Order Now</Link>
-            <Link to="/calculator" style={linkStyle}>Food Calculator</Link>
-            <Link to="/about" style={linkStyle}>About Us</Link>
-            <Link to="/contact" style={linkStyle}>Contact</Link>
+        <header
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "10px 20px",
+            backgroundColor: "#fff",
+            borderBottom: "2px solid #ddd",
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
+            gap: "6px",
+          }}
+        >
+          <img
+            src={logo}
+            alt="Jersey Raw Logo - Fresh Raw Dog Food in Morris County NJ"
+            style={{
+              height: "50px",
+              width: "50px",
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: "2px solid #2b6e44",
+            }}
+          />
+          <nav
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              gap: "6px",
+            }}
+          >
+            {navItems.map((item, idx) => (
+              <Link key={idx} to={item.path} style={linkStyle}>
+                {item.label.split(" ").map((word, i) => (
+                  <span key={i} style={{ display: "block" }}>
+                    {word}
+                  </span>
+                ))}
+              </Link>
+            ))}
           </nav>
         </header>
 
@@ -88,13 +154,19 @@ function App() {
                 <div style={heroStyle}>
                   <div style={overlayStyle}></div>
                   <div style={heroTextStyle}>
-                    <h1 style={{ fontSize: "3em" }}>Fresh Made-to-Order Raw Dog Meals in Morris County, NJ</h1>
+                    <h1 style={{ fontSize: "3em" }}>
+                      Fresh Made-to-Order Raw Dog Meals in Morris County, NJ
+                    </h1>
                     <p style={{ fontSize: "1.2em", maxWidth: "700px", margin: "10px auto" }}>
                       Each meal is prepared fresh and tailored to your dog's unique needs using 100% USDA-approved meats and fresh produce.
                     </p>
                     <div>
-                      <Link to="/recipes" style={buttonStyle}>Recipes</Link>
-                      <Link to="/order" style={buttonStyle}>Order Now</Link>
+                      <Link to="/recipes" style={buttonStyle}>
+                        Recipes
+                      </Link>
+                      <Link to="/order" style={buttonStyle}>
+                        Order Now
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -125,7 +197,15 @@ function App() {
         </Routes>
 
         {/* Footer */}
-        <footer style={{ textAlign: "center", padding: "20px", backgroundColor: "#2b6e44", color: "#fff", marginTop: "40px" }}>
+        <footer
+          style={{
+            textAlign: "center",
+            padding: "20px",
+            backgroundColor: "#2b6e44",
+            color: "#fff",
+            marginTop: "40px",
+          }}
+        >
           <p>&copy; {new Date().getFullYear()} Jersey Raw. Fresh Raw Dog Food in Morris County, NJ.</p>
           <p>Pickup by appointment with flexible hours. Text confirmation sent after order submission.</p>
         </footer>
