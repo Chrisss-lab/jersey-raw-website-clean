@@ -1,113 +1,209 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 
-function FetchRecipes() {
+function Order() {
+  const location = useLocation();
+  const prefill = location.state || {};
+
   const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [packagingOptions, setPackagingOptions] = useState([]);
+  const [form, setForm] = useState({
+    phone: "",
+    name: "",
+    email: "",
+    address: "",
+    recipe: prefill.recipe || "",
+    pounds: prefill.totalFood ? Math.ceil(prefill.totalFood) : 1,
+    packaging: "",
+    coupon: "",
+  });
+  const [errors, setErrors] = useState({});
+  const [totalPrice, setTotalPrice] = useState({
+    subtotal: "0.00",
+    discount: "0.00",
+    tax: "0.00",
+    final: "0.00",
+  });
+  const [packageError, setPackageError] = useState("");
+  const TAX_RATE = 0.06625;
 
+  // Fetch recipes
   useEffect(() => {
-    fetch("/api/recipes") // relative path works on Render too
+    fetch("/api/recipes")
       .then((res) => res.json())
-      .then((data) => {
-        setRecipes(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Error fetching recipes:", err);
-        setLoading(false);
-      });
+      .then(setRecipes)
+      .catch(console.error);
   }, []);
 
-  if (loading) return <p style={{ textAlign: "center" }}>Loading recipes...</p>;
+  // Fetch packaging
+  useEffect(() => {
+    fetch("/api/packages")
+      .then((res) => res.json())
+      .then((data) => {
+        setPackagingOptions(data);
+        setForm((prev) => ({ ...prev, packaging: prev.packaging || data[0]?.Type || "" }));
+      })
+      .catch(console.error);
+  }, []);
+
+  // Calculate prices
+  useEffect(() => {
+    const selectedRecipe = recipes.find((r) => r.Name === form.recipe);
+    const selectedPackage = packagingOptions.find((p) => p.Type === form.packaging);
+
+    if (selectedRecipe) {
+      const price = parseFloat(selectedRecipe.Price) || 0;
+      const discountPct = selectedPackage ? parseFloat(selectedPackage.Discount.replace("%", "")) || 0 : 0;
+
+      const subtotal = price * form.pounds;
+      const discount = subtotal * (discountPct / 100);
+      const tax = (subtotal - discount) * TAX_RATE;
+      const total = subtotal - discount + tax;
+
+      setTotalPrice({
+        subtotal: subtotal.toFixed(2),
+        discount: discount.toFixed(2),
+        tax: tax.toFixed(2),
+        final: total.toFixed(2),
+      });
+
+      if (selectedPackage) {
+        const containerSize = parseFloat(selectedPackage.Size);
+        if (containerSize && form.pounds % containerSize !== 0) {
+          setPackageError(`Please choose an amount divisible by ${containerSize} lb per container.`);
+        } else {
+          setPackageError("");
+        }
+      }
+    }
+  }, [form, recipes, packagingOptions]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name === "phone" && !/^\d*$/.test(value)) return;
+    if (name === "pounds") {
+      setForm((prev) => ({ ...prev, pounds: Math.floor(parseFloat(value) || 0) }));
+      return;
+    }
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const validateFields = () => {
+    const newErrors = {};
+    if (!form.phone) newErrors.phone = "Phone number is required";
+    if (!form.name) newErrors.name = "Name is required";
+    if (!form.email) newErrors.email = "Email is required";
+    if (!form.address) newErrors.address = "Address is required";
+    if (!form.recipe) newErrors.recipe = "Please select a recipe";
+    if (!form.pounds) newErrors.pounds = "Please enter pounds";
+    if (!form.packaging) newErrors.packaging = "Please select a package";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0 && !packageError;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateFields()) return;
+
+    try {
+      const selectedPackage = packagingOptions.find((p) => p.Type === form.packaging);
+      const packageLabel = selectedPackage
+        ? `${selectedPackage.Type} - ${parseFloat(selectedPackage.Size)} lb per container`
+        : form.packaging;
+
+      const res = await fetch("/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, ...totalPrice, packaging: packageLabel }),
+      });
+
+      if (res.ok) {
+        alert(`Order submitted!\nTotal: $${totalPrice.final}`);
+        setForm({
+          phone: "",
+          name: "",
+          email: "",
+          address: "",
+          recipe: recipes[0]?.Name || "",
+          pounds: 1,
+          packaging: packagingOptions[0]?.Type || "",
+          coupon: "",
+        });
+        setTotalPrice({ subtotal: "0.00", discount: "0.00", tax: "0.00", final: "0.00" });
+        setErrors({});
+        setPackageError("");
+      } else {
+        alert("Error submitting order");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error submitting order");
+    }
+  };
+
+  const inputStyle = { padding: "12px", borderRadius: "8px", border: "1px solid #ccc", fontSize: "1em", width: "100%" };
+  const selectStyle = { ...inputStyle, backgroundColor: "#fff" };
+  const buttonStyle = { padding: "14px", borderRadius: "8px", border: "none", backgroundColor: "#2b6e44", color: "#fff", fontWeight: "bold", fontSize: "1.1em", cursor: "pointer" };
+  const errorStyle = { color: "red", fontSize: "0.85em", marginTop: "3px" };
 
   return (
-    <section
-      style={{ padding: "40px", fontFamily: "Arial, sans-serif", color: "#333" }}
-      aria-labelledby="recipes-heading"
-    >
-      <h2
-        id="recipes-heading"
-        style={{ textAlign: "center", marginBottom: "40px", color: "#2b6e44" }}
-      >
-        🐾 Our Fresh Raw Dog Food Recipes
-      </h2>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-          gap: "25px",
-        }}
-      >
-        {recipes.map((recipe, index) => (
-          <article
-            key={index}
-            itemScope
-            itemType="https://schema.org/Recipe"
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: "12px",
-              padding: "25px",
-              backgroundColor: "#ffffff",
-              boxShadow: "0 6px 12px rgba(0,0,0,0.1)",
-              transition: "transform 0.2s ease",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-          >
-            <h3
-              itemProp="name"
-              style={{ margin: "0 0 10px", color: "#2b6e44", fontSize: "1.4rem" }}
-            >
-              {recipe.Name || "Untitled Recipe"}
-            </h3>
-
-            {recipe.Description && (
-              <p
-                itemProp="description"
-                style={{
-                  margin: "0 0 15px",
-                  fontSize: "0.95rem",
-                  color: "#555",
-                  lineHeight: "1.4",
-                }}
-              >
-                {recipe.Description}
-              </p>
-            )}
-
-            <div
-              style={{
-                backgroundColor: "#2b6e44",
-                color: "white",
-                display: "inline-block",
-                padding: "5px 12px",
-                borderRadius: "20px",
-                fontWeight: "bold",
-                marginBottom: "15px",
-              }}
-            >
-              <span itemProp="offers" itemScope itemType="https://schema.org/Offer">
-                <meta itemProp="priceCurrency" content="USD" />
-                <span itemProp="price">${Number(recipe.Price || 0).toFixed(2)}</span> / lb
-              </span>
-            </div>
-
-            <h4
-              style={{ margin: "15px 0 8px", fontSize: "1rem", fontWeight: "600", color: "#444" }}
-            >
-              Ingredients:
-            </h4>
-            <p
-              itemProp="recipeIngredient"
-              style={{ fontSize: "0.85rem", lineHeight: "1.4", color: "#333", margin: 0 }}
-            >
-              {(recipe.Ingredients || []).filter(Boolean).join(", ")}
-            </p>
-          </article>
+    <section style={{ maxWidth: "600px", margin: "40px auto", padding: "20px", backgroundColor: "#fff", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", fontFamily: "Arial, sans-serif" }}>
+      <h2 style={{ color: "#2b6e44", textAlign: "left", marginBottom: "25px" }}>Place Your Order – Fresh Raw Dog Food in Morris County, NJ</h2>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+        {["phone", "name", "email", "address"].map(field => (
+          <label key={field}>
+            {field.charAt(0).toUpperCase() + field.slice(1)}:
+            <input type={field === "email" ? "email" : "text"} name={field} value={form[field]} onChange={handleChange} style={inputStyle} required />
+            {errors[field] && <div style={errorStyle}>{errors[field]}</div>}
+          </label>
         ))}
-      </div>
+
+        <label>
+          Select Recipe:
+          <select name="recipe" value={form.recipe} onChange={handleChange} style={selectStyle} required>
+            <option value="">Select Recipe</option>
+            {recipes.map((r, idx) => <option key={idx} value={r.Name}>{r.Name}</option>)}
+          </select>
+          {errors.recipe && <div style={errorStyle}>{errors.recipe}</div>}
+        </label>
+
+        <label>
+          Number of Pounds:
+          <div style={{ position: "relative" }}>
+            <input type="number" name="pounds" min="1" step="1" value={form.pounds} onChange={handleChange} style={{ ...inputStyle, paddingRight: "40px" }} required />
+            <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", color: "#555", fontWeight: "bold" }}>lb</span>
+          </div>
+          {errors.pounds && <div style={errorStyle}>{errors.pounds}</div>}
+          {packageError && <div style={errorStyle}>{packageError}</div>}
+        </label>
+
+        <label>
+          Packaging:
+          <select name="packaging" value={form.packaging} onChange={handleChange} style={selectStyle} required>
+            {packagingOptions.length === 0 ? <option value="">Loading packages...</option> :
+              packagingOptions.map((p, idx) => <option key={idx} value={p.Type}>{p.Type} - {parseFloat(p.Size)} lb per container</option>)}
+          </select>
+          {errors.packaging && <div style={errorStyle}>{errors.packaging}</div>}
+        </label>
+
+        <label>
+          Coupon Code (Optional):
+          <input type="text" name="coupon" value={form.coupon} onChange={handleChange} style={inputStyle} />
+        </label>
+
+        <div style={{ backgroundColor: "#f9f9f9", padding: "15px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "1em" }}>
+          <h3 style={{ margin: "0 0 10px 0", color: "#2b6e44", textAlign: "left" }}>Order Summary</h3>
+          <p>Subtotal: ${totalPrice.subtotal}</p>
+          <p>Discount: -${totalPrice.discount}</p>
+          <p>Tax: ${totalPrice.tax}</p>
+          <hr />
+          <p style={{ fontWeight: "bold", fontSize: "1.2em" }}>Total: ${totalPrice.final}</p>
+        </div>
+
+        <button type="submit" style={buttonStyle}>Submit Order</button>
+      </form>
     </section>
   );
 }
 
-export default FetchRecipes;
+export default Order;
