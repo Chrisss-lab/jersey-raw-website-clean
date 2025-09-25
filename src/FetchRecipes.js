@@ -5,7 +5,7 @@ function FetchRecipes() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/recipes") // use server proxy
+    fetch("/api/recipes") // relative path works on Render too
       .then((res) => res.json())
       .then((data) => {
         setRecipes(data);
@@ -93,12 +93,7 @@ function FetchRecipes() {
             </div>
 
             <h4
-              style={{
-                margin: "15px 0 8px",
-                fontSize: "1rem",
-                fontWeight: "600",
-                color: "#444",
-              }}
+              style={{ margin: "15px 0 8px", fontSize: "1rem", fontWeight: "600", color: "#444" }}
             >
               Ingredients:
             </h4>
@@ -106,7 +101,7 @@ function FetchRecipes() {
               itemProp="recipeIngredient"
               style={{ fontSize: "0.85rem", lineHeight: "1.4", color: "#333", margin: 0 }}
             >
-              {(recipe.Ingredients || []).filter(i => i).join(", ")}
+              {(recipe.Ingredients || []).filter(Boolean).join(", ")}
             </p>
           </article>
         ))}
