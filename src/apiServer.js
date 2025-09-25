@@ -1,151 +1,152 @@
 import express from "express";
-import cors from "cors";
 import { google } from "googleapis";
-import path from "path";
+import cors from "cors";
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-
 app.use(cors());
 app.use(express.json());
 
-// Google Sheets setup
+// Google Sheets info
 const SPREADSHEET_ID = "1oSyu-xaWxzfiOB4X-gYu9DiGu3Lj4f-cqT2xBt3mPs0";
-
-// Load credentials from environment variable
-if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-  console.error("❌ GOOGLE_SERVICE_ACCOUNT_KEY environment variable not set!");
-  process.exit(1);
-}
-
-let serviceAccount;
-try {
-  serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-} catch (err) {
-  console.error("❌ Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY:", err);
-  process.exit(1);
-}
-
 const auth = new google.auth.GoogleAuth({
-  credentials: serviceAccount,
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY), // use env variable
+  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 });
 
 const sheets = google.sheets({ version: "v4", auth });
 
-// ==========================
-// GET /api/recipes
-// ==========================
+// ------------------------
+// Route to test any sheet
+// ------------------------
+app.get("/test-sheets", async (req, res) => {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "Orders!A2:J"
+    });
+    const rows = response.data.values || [];
+    res.json(rows.length ? rows : { message: "No orders found" });
+  } catch (err) {
+    console.error("Error fetching Orders sheet:", err);
+    res.status(500).send("Error fetching Orders sheet");
+  }
+});
+
+// ------------------------
+// Route to fetch all recipes
+// ------------------------
 app.get("/api/recipes", async (req, res) => {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Recipes!A2:Z",
+      range: "Recipes!A2:Y"
     });
 
     const rows = response.data.values || [];
-    const recipes = rows.map((row) => {
-      const ingredients = [];
-      for (let i = 3; i < row.length; i++) {
-        if (row[i]) {
-          const parts = row[i].split(",").map((s) => s.trim());
-          ingredients.push(...parts);
-        }
-      }
-      return {
-        Name: row[2] || "",
-        Description: row[0] || "",
-        Price: row[1] || "0",
-        Ingredients: ingredients,
-      };
-    });
+    const recipes = rows.map(row => ({
+      description: row[0] || "",
+      price: row[1] || "",
+      Name: row[2] || "",
+      Ingredients: row.slice(3, 27)
+    }));
 
     res.json(recipes);
+
   } catch (err) {
-    console.error("❌ Error fetching recipes:", err);
-    res.status(500).send("Error fetching recipes");
+    console.error("Error fetching Recipes sheet:", err);
+    res.status(500).send("Error fetching Recipes sheet");
   }
 });
 
-// ==========================
-// GET /api/packages
-// ==========================
+// ------------------------
+// Route to fetch packaging options
+// ------------------------
 app.get("/api/packages", async (req, res) => {
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Packages!A2:D",
+      range: "Packages!A2:C"
     });
 
     const rows = response.data.values || [];
-    const packages = rows.map((row, i) => ({
+    const packages = rows.map(row => ({
       Type: row[0] || "",
       Size: row[1] || "",
-      Discount: row[2] || "0",
-      PricePerLb: row[3] || "0",
-      RowNumber: i + 2,
+      Discount: row[2] || "0%"
     }));
 
     res.json(packages);
+
   } catch (err) {
-    console.error("❌ Error fetching packages:", err);
-    res.status(500).send("Error fetching packages");
+    console.error("Error fetching Packages sheet:", err);
+    res.status(500).send("Error fetching Packages sheet");
   }
 });
 
-// ==========================
-// POST /api/order
-// ==========================
-app.post("/api/order", async (req, res) => {
-  const { phone, name, email, address, recipe, pounds, packaging, coupon, total } = req.body;
-
-  if (!phone || !name || !email || !address || !recipe || !pounds || !packaging) {
-    return res.status(400).send("Missing required fields");
-  }
-
+// ------------------------
+// Route to fetch orders with enriched recipe & packaging info
+// ------------------------
+app.get("/api/orders", async (req, res) => {
   try {
-    const now = new Date().toLocaleString();
+    const sheetsApi = sheets.spreadsheets.values;
 
-    const row = [
-      now,
-      phone,
-      name,
-      email,
-      address,
-      recipe,
-      pounds,
-      packaging,
-      coupon || "",
-      total
-    ];
-
-    await sheets.spreadsheets.values.append({
+    const ordersResp = await sheetsApi.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Orders!A2:J",
-      valueInputOption: "USER_ENTERED",
-      insertDataOption: "INSERT_ROWS",
-      requestBody: { values: [row] },
+      range: "Orders!A2:J"
+    });
+    const orders = ordersResp.data.values || [];
+
+    const recipesResp = await sheetsApi.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "Recipes!A2:Y"
+    });
+    const recipesMap = {};
+    (recipesResp.data.values || []).forEach(r => {
+      recipesMap[r[2]] = {
+        description: r[0],
+        price: r[1],
+        Ingredients: r.slice(3, 27)
+      };
     });
 
-    console.log("✅ Order saved to Google Sheets with total in Column J");
-    res.status(200).send({ message: "Order submitted successfully!" });
+    const packagesResp = await sheetsApi.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: "Packages!A2:C"
+    });
+    const packagesMap = {};
+    (packagesResp.data.values || []).forEach(p => {
+      packagesMap[p[0]] = { Size: p[1], Discount: p[2] || "0%" };
+    });
+
+    const enrichedOrders = orders.map(o => {
+      const recipeName = o[5] || "";
+      const packageType = o[7] || "";
+      return {
+        date: o[0],
+        phone: o[1],
+        name: o[2],
+        email: o[3],
+        address: o[4],
+        recipeName,
+        recipe: recipesMap[recipeName] || {},
+        amount: o[6],
+        packaging: packagesMap[packageType] || {},
+        coupon: o[8] || ""
+      };
+    });
+
+    res.json(enrichedOrders);
+
   } catch (err) {
-    console.error("❌ Error saving order:", err);
-    res.status(500).send("Error saving order");
+    console.error("Error fetching orders:", err);
+    res.status(500).send("Error fetching orders");
   }
 });
 
-// ==========================
-// Serve React build (frontend)
-// ==========================
-const __dirname = path.resolve();
-app.use(express.static(path.join(__dirname, "build")));
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "build", "index.html"));
-});
-
-// ==========================
+// ------------------------
 // Start server
-// ==========================
-app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+// ------------------------
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});
