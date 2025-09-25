@@ -1,150 +1,45 @@
-import express from "express";
-import { google } from "googleapis";
-import cors from "cors";
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// ------------------------
-// Google Sheets Setup
-// ------------------------
-const SPREADSHEET_ID = "1oSyu-xaWxzfiOB4X-gYu9DiGu3Lj4f-cqT2xBt3mPs0";
-const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY),
-  scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-});
-const sheets = google.sheets({ version: "v4", auth });
-
-// ------------------------
-// Test Sheet Route
-// ------------------------
-app.get("/test-sheets", async (req, res) => {
-  try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "Orders!A2:J"
-    });
-    const rows = response.data.values || [];
-    res.json(rows.length ? rows : { message: "No orders found" });
-  } catch (err) {
-    console.error("Error fetching Orders sheet:", err);
-    res.status(500).send("Error fetching Orders sheet");
+{
+  "name": "jersey-raw-website",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "googleapis": "^160.0.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.1",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "client": "react-scripts start",
+    "server": "node src/apiServer.js",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "start": "node src/apiServer.js",
+    "build": "react-scripts build"
+  },
+  "proxy": "http://localhost:5000",
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
-});
-
-// ------------------------
-// Recipes Route
-// ------------------------
-app.get("/api/recipes", async (req, res) => {
-  try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "Recipes!A2:Y"
-    });
-    const rows = response.data.values || [];
-    const recipes = rows.map(row => ({
-      description: row[0] || "",
-      price: row[1] || "",
-      name: row[2] || "",
-      ingredients: row.slice(3, 27)
-    }));
-    res.json(recipes);
-  } catch (err) {
-    console.error("Error fetching Recipes sheet:", err);
-    res.status(500).send("Error fetching Recipes sheet");
-  }
-});
-
-// ------------------------
-// Packages Route
-// ------------------------
-app.get("/api/packages", async (req, res) => {
-  try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "Packages!A2:C"
-    });
-    const rows = response.data.values || [];
-    const packages = rows.map(row => ({
-      type: row[0] || "",
-      size: row[1] || "",
-      discount: row[2] || "0%"
-    }));
-    res.json(packages);
-  } catch (err) {
-    console.error("Error fetching Packages sheet:", err);
-    res.status(500).send("Error fetching Packages sheet");
-  }
-});
-
-// ------------------------
-// Orders with Enriched Data
-// ------------------------
-app.get("/api/orders", async (req, res) => {
-  try {
-    const sheetsApi = sheets.spreadsheets.values;
-
-    // Fetch orders
-    const ordersResp = await sheetsApi.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "Orders!A2:J"
-    });
-    const orders = ordersResp.data.values || [];
-
-    // Fetch recipes
-    const recipesResp = await sheetsApi.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "Recipes!A2:Y"
-    });
-    const recipesMap = {};
-    (recipesResp.data.values || []).forEach(r => {
-      recipesMap[r[2]] = {
-        description: r[0],
-        price: r[1],
-        ingredients: r.slice(3, 27)
-      };
-    });
-
-    // Fetch packages
-    const packagesResp = await sheetsApi.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "Packages!A2:C"
-    });
-    const packagesMap = {};
-    (packagesResp.data.values || []).forEach(p => {
-      packagesMap[p[0]] = { size: p[1], discount: p[2] || "0%" };
-    });
-
-    // Enrich orders
-    const enrichedOrders = orders.map(o => {
-      const recipeName = o[5] || "";
-      const packageType = o[7] || "";
-      return {
-        date: o[0],
-        phone: o[1],
-        name: o[2],
-        email: o[3],
-        address: o[4],
-        recipeName,
-        recipe: recipesMap[recipeName] || {},
-        amount: o[6],
-        packaging: packagesMap[packageType] || {},
-        coupon: o[8] || ""
-      };
-    });
-
-    res.json(enrichedOrders);
-  } catch (err) {
-    console.error("Error fetching orders:", err);
-    res.status(500).send("Error fetching orders");
-  }
-});
-
-// ------------------------
-// Start Server
-// ------------------------
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-});
+}
