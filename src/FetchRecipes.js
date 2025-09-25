@@ -5,7 +5,7 @@ function FetchRecipes() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/recipes") // proxy handles localhost:5000
+    fetch("/api/recipes") // use server proxy
       .then((res) => res.json())
       .then((data) => {
         setRecipes(data);
@@ -54,19 +54,13 @@ function FetchRecipes() {
             onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.03)")}
             onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
-            {/* Recipe Title */}
             <h3
               itemProp="name"
-              style={{
-                margin: "0 0 10px",
-                color: "#2b6e44",
-                fontSize: "1.4rem",
-              }}
+              style={{ margin: "0 0 10px", color: "#2b6e44", fontSize: "1.4rem" }}
             >
-              {recipe.Name}
+              {recipe.Name || "Untitled Recipe"}
             </h3>
 
-            {/* Description */}
             {recipe.Description && (
               <p
                 itemProp="description"
@@ -81,7 +75,6 @@ function FetchRecipes() {
               </p>
             )}
 
-            {/* Price */}
             <div
               style={{
                 backgroundColor: "#2b6e44",
@@ -95,11 +88,10 @@ function FetchRecipes() {
             >
               <span itemProp="offers" itemScope itemType="https://schema.org/Offer">
                 <meta itemProp="priceCurrency" content="USD" />
-                <span itemProp="price">${Number(recipe.Price).toFixed(2)}</span> / lb
+                <span itemProp="price">${Number(recipe.Price || 0).toFixed(2)}</span> / lb
               </span>
             </div>
 
-            {/* Ingredients */}
             <h4
               style={{
                 margin: "15px 0 8px",
@@ -112,14 +104,9 @@ function FetchRecipes() {
             </h4>
             <p
               itemProp="recipeIngredient"
-              style={{
-                fontSize: "0.85rem",
-                lineHeight: "1.4",
-                color: "#333",
-                margin: 0,
-              }}
+              style={{ fontSize: "0.85rem", lineHeight: "1.4", color: "#333", margin: 0 }}
             >
-              {recipe.Ingredients.join(", ")}
+              {(recipe.Ingredients || []).filter(i => i).join(", ")}
             </p>
           </article>
         ))}
